@@ -370,7 +370,7 @@
             [self setGcmSandbox:@YES];
         }
 
-        if (notificationMessage) {			// if there is a pending startup notification
+        if (notificationMessage) {          // if there is a pending startup notification
             dispatch_async(dispatch_get_main_queue(), ^{
                 // delay to allow JS event handlers to be setup
                 [self performSelector:@selector(notificationReceived) withObject:nil afterDelay: 0.5];
@@ -409,17 +409,22 @@
         return;
     }
     NSLog(@"Push Plugin register success: %@", deviceToken);
-
-    NSMutableDictionary *results = [NSMutableDictionary dictionary];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+    // [deviceToken description] is like "{length = 32, bytes = 0xd3d997af 967d1f43 b405374a 13394d2f ... 28f10282 14af515f }"
+    NSString *token = [self hexadecimalStringFromData:deviceToken];
+#else
+    // [deviceToken description] is like "<124686a5 556a72ca d808f572 00c323b9 3eff9285 92445590 3225757d b83967be>"
+    // NSMutableDictionary *results = [NSMutableDictionary dictionary];
     NSString *token = [[[[deviceToken description] stringByReplacingOccurrencesOfString:@"<"withString:@""]
                         stringByReplacingOccurrencesOfString:@">" withString:@""]
                        stringByReplacingOccurrencesOfString: @" " withString: @""];
-    [results setValue:token forKey:@"deviceToken"];
+    //[results setValue:token forKey:@"deviceToken"];
+#endif
 
 #if !TARGET_IPHONE_SIMULATOR
     // Get Bundle Info for Remote Registration (handy if you have more than one app)
-    [results setValue:[[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleDisplayName"] forKey:@"appName"];
-    [results setValue:[[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleVersion"] forKey:@"appVersion"];
+    //[results setValue:[[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleDisplayName"] forKey:@"appName"];
+    //[results setValue:[[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleVersion"] forKey:@"appVersion"];
 
     // Check what Notifications the user has turned on.  We registered for all three, but they may have manually disabled some or all of them.
 #define SYSTEM_VERSION_LESS_THAN(v) ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
@@ -450,15 +455,15 @@
         pushSound = @"enabled";
     }
 
-    [results setValue:pushBadge forKey:@"pushBadge"];
-    [results setValue:pushAlert forKey:@"pushAlert"];
-    [results setValue:pushSound forKey:@"pushSound"];
+    //[results setValue:pushBadge forKey:@"pushBadge"];
+    //[results setValue:pushAlert forKey:@"pushAlert"];
+    //[results setValue:pushSound forKey:@"pushSound"];
 
     // Get the users Device Model, Display Name, Token & Version Number
     UIDevice *dev = [UIDevice currentDevice];
-    [results setValue:dev.name forKey:@"deviceName"];
-    [results setValue:dev.model forKey:@"deviceModel"];
-    [results setValue:dev.systemVersion forKey:@"deviceSystemVersion"];
+    //[results setValue:dev.name forKey:@"deviceName"];
+    //[results setValue:dev.model forKey:@"deviceModel"];
+    //[results setValue:dev.systemVersion forKey:@"deviceSystemVersion"];
 
     if([self usesGCM]) {
         GGLInstanceIDConfig *instanceIDConfig = [GGLInstanceIDConfig defaultConfig];
@@ -481,6 +486,21 @@
         [self registerWithToken: token];
     }
 #endif
+}
+
+- (NSString *)hexadecimalStringFromData:(NSData *)data
+{
+    NSUInteger dataLength = data.length;
+    if (dataLength == 0) {
+        return nil;
+    }
+
+    const unsigned char *dataBuffer = data.bytes;
+    NSMutableString *hexString  = [NSMutableString stringWithCapacity:(dataLength * 2)];
+    for (int i = 0; i < dataLength; ++i) {
+        [hexString appendFormat:@"%02x", dataBuffer[i]];
+    }
+    return [hexString copy];
 }
 
 - (void)didFailToRegisterForRemoteNotificationsWithError:(NSError *)error
